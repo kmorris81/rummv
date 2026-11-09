@@ -1,4 +1,4 @@
-# rummv
+# rummv (RUst Multi-Media Viewer)
 
 A fast image & video viewer in Rust that behaves like the Windows Photos app:
 open any file from Dolphin and use **← / →** to step through every image and video in
