@@ -99,6 +99,7 @@ impl RummvApp {
                 hw_enabled: cfg.hw_decode,
                 hwdec_value: cfg.hwdec.clone(),
                 loop_video: cfg.loop_video,
+                slowmo: cfg.slowmo,
                 extra_options: cfg.mpv.clone(),
             },
         ) {
@@ -410,6 +411,18 @@ impl RummvApp {
                     "Loop on"
                 } else {
                     "Loop off"
+                };
+                self.toast(ctx, msg);
+            }
+            Key::S if !ctrl => {
+                self.cfg.slowmo = !self.cfg.slowmo;
+                if let Some(v) = &mut self.video {
+                    v.set_slowmo_enabled(self.cfg.slowmo);
+                }
+                let msg = if self.cfg.slowmo {
+                    "Slow motion on (iPhone slo-mo videos)"
+                } else {
+                    "Slow motion off: full frame rate"
                 };
                 self.toast(ctx, msg);
             }
@@ -983,6 +996,11 @@ impl RummvApp {
         if let MediaKind::Video = kind
             && let Some(v) = &self.video
         {
+            if let Some(sm) = v.slowmo()
+                && v.slowmo_enabled()
+            {
+                right = format!("SLO-MO {}×   {right}", crate::slowmo::fmt_rate(sm.rate));
+            }
             if !v.state.hwdec_current.is_empty() && v.state.hwdec_current != "no" {
                 right = format!("HW:{}   {right}", v.state.hwdec_current);
             } else if v.is_active() {
@@ -1283,6 +1301,14 @@ impl RummvApp {
                     if let Some(fps) = v.prop_f64("container-fps") {
                         rows.push(("Frame rate".into(), format!("{fps:.3} fps")));
                     }
+                    if let Some(sm) = v.slowmo() {
+                        let state = if v.slowmo_enabled() {
+                            ""
+                        } else {
+                            " — off (S)"
+                        };
+                        rows.push(("Slow motion".into(), format!("{}{state}", sm.describe())));
+                    }
                     if let Some(c) = s("video-codec") {
                         rows.push(("Video codec".into(), c));
                     }
@@ -1356,6 +1382,7 @@ impl RummvApp {
             (", / .", "Frame step back / forward"),
             ("↑ / ↓,  M", "Volume,  mute"),
             ("L", "Toggle video looping"),
+            ("S", "Toggle iPhone slow-motion playback"),
             ("Wheel / pinch", "Zoom at cursor"),
             ("Drag,  middle-click", "Pan,  reset zoom"),
             ("0 / 1 / F,  + / −", "Fit / 100% / fill,  zoom"),

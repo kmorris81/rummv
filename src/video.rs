@@ -4,6 +4,7 @@
 //! One mpv core + render context lives for the whole session. Switching files is a
 //! `loadfile`, leaving a video is `stop`. That avoids repeatedly creating/destroying GPU
 //! interop resources.
+use crate::slowmo::{self, SlowMo};
 use glow::HasContext;
 use libmpv2::{
     Format, Mpv,
@@ -61,6 +62,13 @@ pub struct VideoPlayer {
     pub toasts: Vec<String>,
     /// True if the user has something drawn this session (texture holds a frame).
     has_frame: bool,
+    /// Play iPhone slow-motion sections slowly (user setting).
+    slowmo_enabled: bool,
+    /// Slow-motion plan for the current file, once known.
+    slowmo: Option<SlowMo>,
+    slowmo_checked: bool,
+    /// Last `speed` we set on mpv.
+    speed: f64,
 }
 
 pub struct VideoInit {
@@ -69,6 +77,7 @@ pub struct VideoInit {
     pub hw_enabled: bool,
     pub hwdec_value: String,
     pub loop_video: bool,
+    pub slowmo: bool,
     pub extra_options: std::collections::BTreeMap<String, String>,
 }
 
@@ -180,6 +189,10 @@ impl VideoPlayer {
             error: None,
             toasts: Vec::new(),
             has_frame: false,
+            slowmo_enabled: init.slowmo,
+            slowmo: None,
+            slowmo_checked: false,
+            speed: 1.0,
         })
     }
 
@@ -190,6 +203,7 @@ impl VideoPlayer {
         self.state.position = 0.0;
         self.state.duration = 0.0;
         self.state.size = [0, 0];
+        self.reset_slowmo();
         if self.sw_fallback_used {
             // Previous file needed software decode; give hardware another chance on this one.
             self.sw_fallback_used = false;
@@ -210,6 +224,54 @@ impl VideoPlayer {
         self.state.loaded = false;
         self.has_frame = false;
         self.error = None;
+        self.reset_slowmo();
+    }
+
+    fn reset_slowmo(&mut self) {
+        if self.slowmo.take().is_some() {
+            let _ = self.mpv.set_property("audio-pitch-correction", true);
+        }
+        self.slowmo_checked = false;
+        self.set_speed(1.0);
+    }
+
+    fn set_speed(&mut self, speed: f64) {
+        if speed != self.speed {
+            log::debug!("speed {} -> {speed} at {:.3}s", self.speed, self.state.position);
+            self.speed = speed;
+            let _ = self.mpv.set_property("speed", speed);
+        }
+    }
+
+    /// Slow-motion plan for the current video (whether or not it's enabled).
+    pub fn slowmo(&self) -> Option<&SlowMo> {
+        self.slowmo.as_ref()
+    }
+    pub fn slowmo_enabled(&self) -> bool {
+        self.slowmo_enabled
+    }
+    pub fn set_slowmo_enabled(&mut self, on: bool) {
+        self.slowmo_enabled = on;
+    }
+
+    /// Work out whether the loaded file is an iPhone slow-motion clip.
+    fn detect_slowmo(&self) -> Option<SlowMo> {
+        let path = self.current.as_ref()?;
+        if let Some(aae) = slowmo::find_sidecar(path) {
+            match slowmo::parse_sidecar(&aae) {
+                Ok(plan) => return plan,
+                Err(e) => log::warn!("{}: {e}", aae.display()),
+            }
+        }
+        // No usable Photos edit: Apple's default for its own high-frame-rate captures,
+        // unless the clip is tagged to play at full frame rate (iOS 18+ 120 fps video).
+        let key = |k: &str| self.prop_string(&format!("metadata/by-key/com.apple.quicktime.{k}"));
+        if key("make").as_deref() != Some("Apple")
+            || key("full-frame-rate-playback-intent").as_deref() == Some("1")
+        {
+            return None;
+        }
+        SlowMo::default_for(self.state.duration, self.prop_f64("container-fps")?)
     }
 
     pub fn is_active(&self) -> bool {
@@ -321,6 +383,21 @@ impl VideoPlayer {
         let w = self.mpv.get_property::<i64>("dwidth").unwrap_or(0) as i32;
         let h = self.mpv.get_property::<i64>("dheight").unwrap_or(0) as i32;
         self.state.size = [w, h];
+
+        if self.state.loaded && !self.slowmo_checked && self.state.duration > 0.0 {
+            self.slowmo_checked = true;
+            self.slowmo = self.detect_slowmo();
+            if let Some(s) = &self.slowmo {
+                log::info!("slow motion: {}", s.describe());
+                // Slowed audio drops in pitch, like Apple's players.
+                let _ = self.mpv.set_property("audio-pitch-correction", false);
+            }
+        }
+        let speed = match &self.slowmo {
+            Some(s) if self.slowmo_enabled => s.speed_at(self.state.position),
+            _ => 1.0,
+        };
+        self.set_speed(speed);
     }
 
     fn on_load_error(&mut self, msg: String) {

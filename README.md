@@ -8,6 +8,9 @@ that folder. Videos autoplay (with sound, looping).
   HDR, EXR, PNM, QOI, HEIC/HEIF, AVIF, JPEG XL, SVG, PSD, ICNS, and camera RAW (CR2/CR3/NEF/ARW/
   DNG/RAF/ORF/RW2/…). EXIF orientation is applied automatically.
 * **Video:** anything mpv/ffmpeg plays (MP4, MKV, WebM, MOV, AVI, …) via embedded libmpv.
+* **iPhone slow motion:** 120/240 fps slo-mo clips play their slow section slowed down, like
+  Photos does. The section comes from the clip's `.AAE` sidecar (your Photos edit) when it's
+  next to the video, otherwise Apple's default (15%–85% of the clip). **S** toggles it.
   Zero-copy hardware decoding (`hwdec=auto-safe`), automatic CPU fallback, Ctrl+H toggle.
 * Natural sort (same order as Dolphin), wrap-around, live folder updates, neighbour
   prefetch, filmstrip (shares Dolphin's `~/.cache/thumbnails`), info panel with EXIF/codec.
@@ -80,6 +83,7 @@ show_filmstrip = false
 show_info = false
 slideshow_secs = 4.0
 loop_video = true
+slowmo = true           # iPhone slow-motion playback (S toggles)
 ```
 
 ### Passing options to mpv

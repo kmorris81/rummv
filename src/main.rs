@@ -7,6 +7,7 @@ mod decode;
 mod media;
 mod meta;
 mod playlist;
+mod slowmo;
 mod thumbs;
 mod video;
 

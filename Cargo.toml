@@ -36,6 +36,7 @@ md5 = "0.8"
 url = "2"
 jiff = "0.2"
 icns = "0.5"
+plist = "1.10.3"
 
 [profile.release]
 lto = "thin"
