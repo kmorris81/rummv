@@ -1,0 +1,66 @@
+# Pushing a tag vX.Y.Z (matching Cargo.toml) builds the x86_64 Linux binary with
+# Nix, publishes it as a GitHub release, and points release.json on main at the
+# tarball so `nix build` / the flake installs it instead of compiling.
+#
+# The binary is dynamically linked (libmpv, libheif, GL), so it isn't a portable
+# static build: package-bin.nix relinks it against the consumer's nixpkgs.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check the tag matches Cargo.toml
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n1)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "tag $GITHUB_REF_NAME doesn't match Cargo.toml version $version"
+            exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      - uses: cachix/install-nix-action@v31
+
+      - name: Test
+        run: nix develop --command cargo test --locked
+
+      - name: Build
+        run: nix build -L .#rummv-src
+
+      - name: Package
+        run: |
+          name=rummv-$VERSION-x86_64-linux
+          mkdir -p "$name/bin" "$name/share/applications"
+          # bin/rummv is the Nix wrapper script; package the real binary.
+          install -m755 result/bin/.rummv-wrapped "$name/bin/rummv"
+          install -m644 assets/rummv.desktop "$name/share/applications/"
+          tar --sort=name --owner=0 --group=0 --numeric-owner --mtime=@0 -czf "$name.tar.gz" "$name"
+          echo "TARBALL=$name.tar.gz" >> "$GITHUB_ENV"
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" "$TARBALL" --title "$GITHUB_REF_NAME" --generate-notes
+
+      - name: Point release.json at it
+        run: |
+          hash="sha256-$(openssl dgst -sha256 -binary "$TARBALL" | base64)"
+          url="https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME/$TARBALL"
+          git fetch --depth=1 origin main
+          git checkout -B main origin/main
+          printf '{\n  "version": "%s",\n  "url": "%s",\n  "hash": "%s"\n}\n' \
+            "$VERSION" "$url" "$hash" > release.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add release.json
+          git commit -m "release.json: $GITHUB_REF_NAME"
+          git push origin main

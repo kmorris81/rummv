@@ -20,10 +20,15 @@ Press **F1** in the app for all shortcuts.
 In your system flake:
 
 ```nix
-inputs.rummv.url = "path:/path/to/rummv";   # or a git URL
+inputs.rummv.url = "github:kmorris81/rummv";
+inputs.rummv.inputs.nixpkgs.follows = "nixpkgs";
 # ...
 environment.systemPackages = [ inputs.rummv.packages.${pkgs.stdenv.hostPlatform.system}.default ];
 ```
+
+`default` installs the prebuilt binary from the latest GitHub release when `release.json`
+matches the version in `Cargo.toml` (x86_64 only), so nothing compiles on your machine;
+otherwise it builds from source. `.#rummv-src` always builds from source.
 
 Try it first without installing (`nix run` / `nix shell`):
 
@@ -37,6 +42,18 @@ System Settings → **Default Applications** → *Image viewer* → rummv,
 or per type: right-click a file in Dolphin → **Open With → Other Application…** → rummv →
 tick *Remember application association*. The bundled `rummv.desktop` registers all image
 and video MIME types (`Exec=rummv %f`; rummv derives the folder from the file).
+
+## Releasing
+
+Bump `version` in `Cargo.toml`, commit, then tag and push:
+
+```sh
+git tag v0.2.0 && git push origin main v0.2.0
+```
+
+`.github/workflows/release.yml` runs the tests, builds with Nix, publishes
+`rummv-<version>-x86_64-linux.tar.gz` as a GitHub release and commits an updated
+`release.json` to `main` (so `git pull` afterwards).
 
 ## Develop
 

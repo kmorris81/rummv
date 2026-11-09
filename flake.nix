@@ -5,60 +5,36 @@
 
   outputs = { self, nixpkgs }:
     let
+      lib = nixpkgs.lib;
       systems = [ "x86_64-linux" "aarch64-linux" ];
-      forAll = f: nixpkgs.lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system});
+      forAll = f: lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system});
 
-      runtimeLibs = pkgs: with pkgs; [
-        libGL
-        libxkbcommon
-        wayland
-        libx11
-        libxcursor
-        libxi
-        libxrandr
-      ];
+      # Use the GitHub release binary only if release.json describes this very
+      # version (and we're on x86_64); otherwise build from source.
+      havePrebuilt = system:
+        system == "x86_64-linux"
+        && builtins.pathExists ./release.json
+        && (lib.importJSON ./release.json).version == (lib.importTOML ./Cargo.toml).package.version;
     in
     {
-      packages = forAll (pkgs: {
-        default = pkgs.rustPlatform.buildRustPackage {
-          pname = "rummv";
-          version = "0.1.0";
-          src = pkgs.lib.cleanSource ./.;
-          cargoLock.lockFile = ./Cargo.lock;
+      packages = forAll (pkgs:
+        let
+          system = pkgs.stdenv.hostPlatform.system;
+          src = pkgs.callPackage ./package.nix { };
+        in
+        {
+          rummv-src = src;
+          default = if havePrebuilt system then pkgs.callPackage ./package-bin.nix { } else src;
+        });
 
-          nativeBuildInputs = with pkgs; [ pkg-config makeWrapper rustPlatform.bindgenHook ];
-          buildInputs = with pkgs; [ mpv-unwrapped libheif ] ++ runtimeLibs pkgs;
-
-          # Fixture-based tests need ffmpeg etc.; run them via `nix develop -c cargo test`.
-          doCheck = false;
-
-          postInstall = ''
-            install -Dm644 assets/rummv.desktop $out/share/applications/rummv.desktop
-          '';
-
-          # winit/glutin dlopen GL, Wayland and X11 libraries at runtime.
-          # ffmpegthumbnailer/ffmpeg generate filmstrip thumbnails for videos.
-          postFixup = ''
-            wrapProgram $out/bin/rummv \
-              --prefix LD_LIBRARY_PATH : ${pkgs.lib.makeLibraryPath (runtimeLibs pkgs)} \
-              --suffix LD_LIBRARY_PATH : /run/opengl-driver/lib \
-              --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.ffmpegthumbnailer pkgs.ffmpeg-headless ]}
-          '';
-
-          meta = {
-            description = "Image & video viewer with arrow-key folder navigation";
-            mainProgram = "rummv";
-            platforms = pkgs.lib.platforms.linux;
+      devShells = forAll (pkgs:
+        let runtime = import ./nix/runtime.nix { inherit lib pkgs; };
+        in {
+          default = pkgs.mkShell {
+            inputsFrom = [ self.packages.${pkgs.stdenv.hostPlatform.system}.rummv-src ];
+            packages = with pkgs; [ cargo rustc clippy rustfmt rust-analyzer ffmpeg ffmpegthumbnailer ];
+            LD_LIBRARY_PATH = lib.makeLibraryPath runtime.dlopenLibs;
           };
-        };
-      });
-
-      devShells = forAll (pkgs: {
-        default = pkgs.mkShell {
-          inputsFrom = [ self.packages.${pkgs.stdenv.hostPlatform.system}.default ];
-          packages = with pkgs; [ cargo rustc clippy rustfmt rust-analyzer ffmpeg ffmpegthumbnailer ];
-          LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath (runtimeLibs pkgs);
-        };
-      });
+        });
     };
 }
