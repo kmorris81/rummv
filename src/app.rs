@@ -1,7 +1,7 @@
 //! The egui application: input, layout, overlays, confirmation dialogs.
 use crate::actions;
 use crate::cache::{ImageCache, Loaded, Slot};
-use crate::config::{Config, FitMode};
+use crate::config::{Config, FilmstripSize, FitMode};
 use crate::media::MediaKind;
 use crate::meta;
 use crate::playlist::Playlist;
@@ -20,6 +20,9 @@ const ACCENT: Color32 = Color32::from_rgb(90, 160, 255);
 const UI_HIDE_AFTER: f64 = 2.5;
 const FILMSTRIP_H: f32 = 108.0;
 const THUMB_W: f32 = 120.0;
+/// Thumbnail cell in the half/full-window grid.
+const GRID_CELL: Vec2 = vec2(168.0, 126.0);
+const GRID_GAP: f32 = 8.0;
 const PREFETCH: isize = 2;
 
 /// Something that would modify or delete a file. Never executed without the user confirming.
@@ -81,12 +84,22 @@ pub struct RummvApp {
     seek_drag: bool,
     sized_window: bool,
     filmstrip_scroll_to_current: bool,
+    /// Filmstrip scroll position along its scroll axis (x for the row, y for the grid).
+    filmstrip_offset: f32,
+    /// Columns in the thumbnail grid last frame (↑/↓ move by a row in the full grid).
+    grid_cols: usize,
+    /// Size to go back to when leaving the full-window grid (Enter / Esc / click).
+    filmstrip_prev: FilmstripSize,
     title: String,
     loading_since: f64,
 }
 
 impl RummvApp {
     pub fn new(cc: &eframe::CreationContext<'_>, cfg: Config, playlist: Playlist) -> Self {
+        let filmstrip_prev = match cfg.filmstrip_size {
+            FilmstripSize::Full => FilmstripSize::Row,
+            s => s,
+        };
         let ctx = &cc.egui_ctx;
         let mut visuals = egui::Visuals::dark();
         visuals.panel_fill = BG;
@@ -137,6 +150,9 @@ impl RummvApp {
             seek_drag: false,
             sized_window: false,
             filmstrip_scroll_to_current: true,
+            filmstrip_offset: 0.0,
+            grid_cols: 1,
+            filmstrip_prev,
             title: String::new(),
             loading_since: 0.0,
         }
@@ -161,6 +177,32 @@ impl RummvApp {
         self.filmstrip_scroll_to_current = true;
     }
 
+    /// The thumbnail grid covers the whole window (media hidden, video stopped).
+    fn grid_full(&self) -> bool {
+        self.cfg.show_filmstrip && self.cfg.filmstrip_size == FilmstripSize::Full
+    }
+
+    fn set_filmstrip(&mut self, show: bool, size: FilmstripSize) {
+        let was_full = self.grid_full();
+        if size != FilmstripSize::Full {
+            self.filmstrip_prev = size;
+        }
+        if size != self.cfg.filmstrip_size {
+            self.filmstrip_offset = 0.0; // scroll axis may change
+        }
+        self.cfg.show_filmstrip = show;
+        self.cfg.filmstrip_size = size;
+        self.filmstrip_scroll_to_current = true;
+        if was_full != self.grid_full() {
+            // Media hidden or shown again: stop / (re)start video via sync_current.
+            self.shown = None;
+        }
+    }
+
+    fn leave_full_grid(&mut self) {
+        self.set_filmstrip(true, self.filmstrip_prev);
+    }
+
     /// React to the current entry changing: reset view, start/stop video, prefetch.
     fn sync_current(&mut self, ctx: &egui::Context) {
         let cur = self.current();
@@ -175,8 +217,9 @@ impl RummvApp {
             if let Some(s) = &mut self.slideshow {
                 *s = ctx.input(|i| i.time) + self.cfg.slideshow_secs as f64;
             }
+            let media_hidden = self.grid_full();
             match &cur {
-                Some((p, MediaKind::Video)) => {
+                Some((p, MediaKind::Video)) if !media_hidden => {
                     if let Some(v) = &mut self.video {
                         v.load(p);
                     }
@@ -318,6 +361,17 @@ impl RummvApp {
                     self.toggle_slideshow(ctx);
                 }
             }
+            // Full grid: move by a row
+            Key::ArrowUp | Key::ArrowDown if self.grid_full() => {
+                let cols = self.grid_cols.max(1) as isize;
+                let i =
+                    self.playlist.index as isize + if key == Key::ArrowDown { cols } else { -cols };
+                if i >= 0 && (i as usize) < self.playlist.len() {
+                    self.playlist.go_to(i as usize);
+                    self.filmstrip_scroll_to_current = true;
+                }
+            }
+            Key::Enter if !m.alt && self.grid_full() => self.leave_full_grid(),
             // Volume
             Key::ArrowUp | Key::ArrowDown => {
                 if let Some(v) = &mut self.video {
@@ -430,9 +484,17 @@ impl RummvApp {
             }
             // UI toggles
             Key::I => self.cfg.show_info = !self.cfg.show_info,
+            Key::T if shift => {
+                let size = if self.cfg.show_filmstrip {
+                    self.cfg.filmstrip_size.next()
+                } else {
+                    FilmstripSize::Row
+                };
+                self.set_filmstrip(true, size);
+            }
             Key::T => {
-                self.cfg.show_filmstrip = !self.cfg.show_filmstrip;
-                self.filmstrip_scroll_to_current = true;
+                let size = self.cfg.filmstrip_size;
+                self.set_filmstrip(!self.cfg.show_filmstrip, size);
             }
             Key::F1 | Key::Questionmark => self.show_help = !self.show_help,
             Key::F5 => {
@@ -450,6 +512,8 @@ impl RummvApp {
                 } else if self.slideshow.is_some() {
                     self.slideshow = None;
                     self.toast(ctx, "Slideshow stopped");
+                } else if self.grid_full() {
+                    self.leave_full_grid();
                 } else if ctx.input(|i| i.viewport().fullscreen.unwrap_or(false)) {
                     ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
                 } else {
@@ -1001,7 +1065,11 @@ impl RummvApp {
         let ppp = ctx.pixels_per_point();
         let mut size = self.content_size(media_px) / ppp;
         if self.cfg.show_filmstrip {
-            size.y += FILMSTRIP_H;
+            match self.cfg.filmstrip_size {
+                FilmstripSize::Row => size.y += FILMSTRIP_H,
+                FilmstripSize::Half => size.y *= 2.0,
+                FilmstripSize::Full => {}
+            }
         }
         let max = monitor * 0.85;
         let scale = (max.x / size.x).min(max.y / size.y).min(1.0);
@@ -1193,53 +1261,136 @@ impl RummvApp {
     }
 
     fn draw_filmstrip(&mut self, ui: &mut egui::Ui, rect: Rect) {
+        let ctx = ui.ctx().clone();
         let painter = ui.painter_at(rect);
         painter.rect_filled(rect, 0.0, Color32::from_rgb(10, 10, 10));
         let n = self.playlist.len();
         if n == 0 {
             return;
         }
-        let mut builder = egui::UiBuilder::new().max_rect(rect);
-        builder = builder.layout(egui::Layout::left_to_right(egui::Align::Center));
-        let mut child = ui.new_child(builder);
-        let scroll_to = self
-            .filmstrip_scroll_to_current
-            .then_some(self.playlist.index);
-        self.filmstrip_scroll_to_current = false;
-        let item_w = THUMB_W + 6.0;
+        let grid = self.cfg.filmstrip_size != FilmstripSize::Row;
+        // Geometry: `pitch` is the distance between cells; `axis` the scroll direction.
+        let (axis, pitch, cols, total) = if grid {
+            let pitch = GRID_CELL + Vec2::splat(GRID_GAP);
+            let usable = rect.width() - 2.0 * GRID_GAP - 12.0; // room for the scroll bar
+            let cols = ((usable / pitch.x).floor() as usize).max(1);
+            let rows = n.div_ceil(cols);
+            (
+                1,
+                pitch,
+                cols,
+                vec2(rect.width() - 12.0, rows as f32 * pitch.y + GRID_GAP),
+            )
+        } else {
+            let pitch = vec2(THUMB_W + 6.0, rect.height() - 12.0);
+            (0, pitch, n, vec2(n as f32 * pitch.x, rect.height() - 12.0))
+        };
+        self.grid_cols = if grid { cols } else { 1 };
+        let view_len = rect.size()[axis];
+        let max_offset = (total[axis] - view_len).max(0.0);
+
+        // Where to scroll this frame, if we decide it (wheel or keeping the current item in view).
+        let mut target: Option<f32> = None;
+        if self.filmstrip_scroll_to_current {
+            self.filmstrip_scroll_to_current = false;
+            let i = self.playlist.index;
+            let centre = if grid {
+                (i / cols) as f32 * pitch.y + pitch.y / 2.0
+            } else {
+                i as f32 * pitch.x + pitch.x / 2.0
+            };
+            target = Some(centre - view_len / 2.0);
+        }
+        // Mouse wheel over the strip scrolls it (vertical wheel scrolls the row sideways).
+        let hovered = ctx
+            .input(|i| i.pointer.hover_pos())
+            .is_some_and(|p| rect.contains(p));
+        if hovered && self.confirm.is_none() && !self.show_help {
+            let step = if grid { pitch.y } else { 2.0 * pitch.x };
+            let amount: f32 = ctx.input(|i| {
+                i.events
+                    .iter()
+                    .filter_map(|e| match e {
+                        Event::MouseWheel { unit, delta, .. } => {
+                            let d = if grid { delta.y } else { delta.y + delta.x };
+                            Some(match unit {
+                                egui::MouseWheelUnit::Point => -d,
+                                egui::MouseWheelUnit::Line => -d * step,
+                                egui::MouseWheelUnit::Page => -d * view_len,
+                            })
+                        }
+                        _ => None,
+                    })
+                    .sum()
+            });
+            if amount != 0.0 {
+                target = Some(target.unwrap_or(self.filmstrip_offset) + amount);
+            }
+        }
+
+        let mut child = ui.new_child(egui::UiBuilder::new().max_rect(rect));
+        let mut area = if grid {
+            egui::ScrollArea::vertical().id_salt("filmgrid")
+        } else {
+            egui::ScrollArea::horizontal().id_salt("filmstrip")
+        }
+        .auto_shrink([false, false])
+        // We scroll on the wheel ourselves (above), consistently for both layouts.
+        .scroll_source(egui::scroll_area::ScrollSource {
+            mouse_wheel: false,
+            ..Default::default()
+        });
+        if let Some(t) = target {
+            let t = t.clamp(0.0, max_offset);
+            area = if grid {
+                area.vertical_scroll_offset(t)
+            } else {
+                area.horizontal_scroll_offset(t)
+            };
+        }
+
         let mut clicked: Option<usize> = None;
         let mut requests: Vec<(PathBuf, MediaKind)> = Vec::new();
-
-        let mut area = egui::ScrollArea::horizontal()
-            .id_salt("filmstrip")
-            .auto_shrink([false, false]);
-        if let Some(i) = scroll_to {
-            // Centre the current item.
-            let target = (i as f32 * item_w + item_w / 2.0 - rect.width() / 2.0).max(0.0);
-            area = area.horizontal_scroll_offset(target);
-        }
-        area.show_viewport(&mut child, |ui, viewport| {
-            let total = vec2(n as f32 * item_w, rect.height() - 12.0);
-            let (resp_rect, _) = ui.allocate_exact_size(total, Sense::hover());
-            let first = ((viewport.min.x / item_w).floor().max(0.0)) as usize;
-            let last = (((viewport.max.x / item_w).ceil()) as usize).min(n);
-            // request visible first, then a margin on each side
-            let margin = 8;
+        let out = area.show_viewport(&mut child, |ui, viewport| {
+            let (content, _) = ui.allocate_exact_size(total, Sense::hover());
+            // Visible index range (whole rows in the grid), plus a prefetch margin.
+            let (first, last, margin) = if grid {
+                let r0 = (viewport.min.y / pitch.y).floor().max(0.0) as usize;
+                let r1 = (viewport.max.y / pitch.y).ceil().max(0.0) as usize;
+                ((r0 * cols).min(n), (r1 * cols).min(n), 2 * cols)
+            } else {
+                let a = (viewport.min.x / pitch.x).floor().max(0.0) as usize;
+                let b = (viewport.max.x / pitch.x).ceil().max(0.0) as usize;
+                (a.min(n), b.min(n), 8)
+            };
             let lo = first.saturating_sub(margin);
             let hi = (last + margin).min(n);
             for i in (first..last).chain(lo..first).chain(last..hi) {
                 let e = &self.playlist.entries[i];
                 requests.push((e.path.clone(), e.kind));
             }
+            let left_pad = if grid {
+                (total.x - cols as f32 * pitch.x) / 2.0 + GRID_GAP / 2.0
+            } else {
+                3.0
+            };
             for i in first..last {
                 let e = &self.playlist.entries[i];
-                let cell = Rect::from_min_size(
-                    pos2(
-                        resp_rect.min.x + i as f32 * item_w + 3.0,
-                        resp_rect.min.y + 3.0,
-                    ),
-                    vec2(THUMB_W, total.y - 6.0),
-                );
+                let cell = if grid {
+                    Rect::from_min_size(
+                        content.min
+                            + vec2(
+                                left_pad + (i % cols) as f32 * pitch.x,
+                                GRID_GAP + (i / cols) as f32 * pitch.y,
+                            ),
+                        GRID_CELL,
+                    )
+                } else {
+                    Rect::from_min_size(
+                        content.min + vec2(i as f32 * pitch.x + 3.0, 3.0),
+                        vec2(THUMB_W, total.y - 6.0),
+                    )
+                };
                 let id = egui::Id::unique(("thumb", i));
                 let r = ui.interact(cell, id, Sense::click());
                 if r.clicked() {
@@ -1295,9 +1446,13 @@ impl RummvApp {
                 r.on_hover_text(file_name(&e.path));
             }
         });
+        self.filmstrip_offset = out.state.clamped_offset()[axis];
         self.thumbs.request(&requests);
         if let Some(i) = clicked {
             self.playlist.go_to(i);
+            if self.grid_full() {
+                self.leave_full_grid();
+            }
         }
     }
 
@@ -1421,7 +1576,7 @@ impl RummvApp {
             ("Shift+← / →", "Seek ±5 s"),
             ("Ctrl+Shift+← / →", "Seek ±30 s"),
             (", / .", "Frame step back / forward"),
-            ("↑ / ↓,  M", "Volume,  mute"),
+            ("↑ / ↓,  M", "Volume,  mute  (full grid: move by a row)"),
             ("L", "Toggle video looping"),
             ("S", "Toggle iPhone slow-motion playback"),
             ("Wheel / pinch", "Zoom at cursor"),
@@ -1433,30 +1588,60 @@ impl RummvApp {
             ("Ctrl+C", "Copy file path"),
             ("Ctrl+E", "Show in file manager"),
             ("O", "Open with default app"),
-            ("I / T", "Info panel / filmstrip"),
+            ("I", "Info panel"),
+            ("T", "Filmstrip on / off"),
+            ("Shift+T", "Filmstrip size: row → half window → full window"),
+            (
+                "Enter / Esc / click",
+                "Full-window grid: open selected / go back",
+            ),
+            ("Wheel over filmstrip", "Scroll thumbnails"),
             ("Ctrl+H", "Toggle hardware video decoding"),
             ("F5", "Reload folder"),
             ("F11, double-click", "Fullscreen"),
             ("Esc / Q", "Leave fullscreen or quit / quit"),
         ];
+        // Fill the window and split into as many columns as needed, so it never scrolls.
+        let area = ctx.content_rect().shrink(24.0);
+        // Row height of the grid below (text + spacing); title bar + footer take ~110 px.
+        const ROW_H: f32 = 26.0;
+        // Widest key + description pair, so columns never overlap.
+        const COL_W: f32 = 540.0;
+        let rows_fit = (((area.height() - 110.0) / ROW_H).floor() as usize).max(1);
+        let cols_fit = ((area.width() / COL_W).floor() as usize).clamp(1, 3);
+        let cols_needed = KEYS.len().div_ceil(rows_fit);
+        let cols = cols_needed.min(cols_fit);
+        let per_col = KEYS.len().div_ceil(cols);
+        // Only a really small window is too small for everything: then scroll.
+        let scroll = cols_needed > cols_fit;
         egui::Window::new("Keyboard shortcuts")
             .collapsible(false)
             .resizable(false)
-            .anchor(Align2::CENTER_CENTER, Vec2::ZERO)
-            .vscroll(true)
-            .max_height(ctx.content_rect().height() - 60.0)
+            .fixed_rect(area)
+            .vscroll(scroll)
             .show(ctx, |ui| {
-                egui::Grid::new("help")
-                    .num_columns(2)
-                    .spacing([16.0, 4.0])
-                    .show(ui, |ui| {
-                        for (k, d) in KEYS {
-                            ui.label(egui::RichText::new(*k).monospace().color(ACCENT));
-                            ui.label(*d);
-                            ui.end_row();
-                        }
-                    });
-                ui.add_space(6.0);
+                if scroll {
+                    ui.set_min_width(ui.available_width());
+                } else {
+                    ui.set_min_size(ui.available_size());
+                }
+                ui.columns(cols, |columns| {
+                    for (c, (col_ui, chunk)) in
+                        columns.iter_mut().zip(KEYS.chunks(per_col)).enumerate()
+                    {
+                        egui::Grid::new(("help", c))
+                            .num_columns(2)
+                            .spacing([16.0, 6.0])
+                            .show(col_ui, |ui| {
+                                for (k, d) in chunk {
+                                    ui.label(egui::RichText::new(*k).monospace().color(ACCENT));
+                                    ui.label(*d);
+                                    ui.end_row();
+                                }
+                            });
+                    }
+                });
+                ui.add_space(10.0);
                 ui.label(egui::RichText::new("F1 / ? / Esc to close").weak());
             });
     }
@@ -1576,27 +1761,34 @@ impl eframe::App for RummvApp {
             .show(ui, |ui| {
                 let full = ui.max_rect();
                 let (media_rect, strip_rect) = if self.cfg.show_filmstrip {
-                    let split = full.max.y - FILMSTRIP_H;
+                    let split = match self.cfg.filmstrip_size {
+                        FilmstripSize::Row => full.max.y - FILMSTRIP_H,
+                        FilmstripSize::Half => full.center().y,
+                        FilmstripSize::Full => full.min.y,
+                    };
                     (
-                        Rect::from_min_max(full.min, pos2(full.max.x, split)),
+                        Rect::from_min_max(full.min, pos2(full.max.x, split.max(full.min.y))),
                         Some(Rect::from_min_max(pos2(full.min.x, split), full.max)),
                     )
                 } else {
                     (full, None)
                 };
-                self.draw_media(ui, frame, media_rect);
-                self.draw_top_bar(ui, media_rect, chrome_visible);
-                let over_controls = self.draw_video_controls(ui, media_rect, chrome_visible);
-                if over_controls {
-                    self.last_activity = now;
+                let media_visible = !self.grid_full();
+                if media_visible {
+                    self.draw_media(ui, frame, media_rect);
+                    self.draw_top_bar(ui, media_rect, chrome_visible);
+                    let over_controls = self.draw_video_controls(ui, media_rect, chrome_visible);
+                    if over_controls {
+                        self.last_activity = now;
+                    }
                 }
                 if let Some(r) = strip_rect {
                     self.draw_filmstrip(ui, r);
                 }
-                if self.cfg.show_info {
+                if self.cfg.show_info && media_visible {
                     self.draw_info(ui, media_rect);
                 }
-                self.draw_toasts(ui, media_rect);
+                self.draw_toasts(ui, if media_visible { media_rect } else { full });
             });
 
         if self.show_help {

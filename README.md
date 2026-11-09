@@ -13,7 +13,9 @@ that folder. Videos autoplay (with sound, looping).
   next to the video, otherwise Apple's default (15%–85% of the clip). **S** toggles it.
   Zero-copy hardware decoding (`hwdec=auto-safe`), automatic CPU fallback, Ctrl+H toggle.
 * Natural sort (same order as Dolphin), wrap-around, live folder updates, neighbour
-  prefetch, filmstrip (shares Dolphin's `~/.cache/thumbnails`), info panel with EXIF/codec.
+  prefetch, filmstrip (shares Dolphin's `~/.cache/thumbnails`; **T** toggles it, **Shift+T**
+  cycles a single row → half-window grid → full-window grid, the wheel scrolls it), info
+  panel with EXIF/codec.
 * **Anything that modifies or deletes a file asks for confirmation first.**
 
 Press **F1** in the app for all shortcuts.
@@ -80,6 +82,7 @@ start_fullscreen = false
 watch_folder = true
 show_hidden = false
 show_filmstrip = false
+filmstrip_size = "row"  # row | half | full
 show_info = false
 slideshow_secs = 4.0
 loop_video = true

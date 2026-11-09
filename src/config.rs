@@ -14,6 +14,29 @@ pub enum FitMode {
     Actual,
 }
 
+/// Filmstrip size (Shift+T cycles).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum FilmstripSize {
+    /// One row of thumbnails under the media.
+    #[default]
+    Row,
+    /// Thumbnail grid filling the bottom half of the window.
+    Half,
+    /// Thumbnail grid filling the whole window (media hidden).
+    Full,
+}
+
+impl FilmstripSize {
+    pub fn next(self) -> Self {
+        match self {
+            Self::Row => Self::Half,
+            Self::Half => Self::Full,
+            Self::Full => Self::Row,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
@@ -29,6 +52,7 @@ pub struct Config {
     pub watch_folder: bool,
     pub show_hidden: bool,
     pub show_filmstrip: bool,
+    pub filmstrip_size: FilmstripSize,
     pub show_info: bool,
     /// Slideshow interval for images, seconds.
     pub slideshow_secs: f32,
@@ -53,6 +77,7 @@ impl Default for Config {
             watch_folder: true,
             show_hidden: false,
             show_filmstrip: false,
+            filmstrip_size: FilmstripSize::Row,
             show_info: false,
             slideshow_secs: 4.0,
             loop_video: true,
