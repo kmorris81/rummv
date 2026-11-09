@@ -22,7 +22,7 @@ In your system flake:
 ```nix
 inputs.mview.url = "path:/path/to/mview";   # or a git URL
 # ...
-environment.systemPackages = [ inputs.mview.packages.${pkgs.system}.default ];
+environment.systemPackages = [ inputs.mview.packages.${pkgs.stdenv.hostPlatform.system}.default ];
 ```
 
 Try it first without installing (`nix run` / `nix shell`):
