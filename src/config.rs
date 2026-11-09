@@ -68,11 +68,7 @@ impl Config {
         let Some(p) = Self::path() else {
             return Self::default();
         };
-        // Carry settings over from the app's previous name (mview); saved to the new path on exit.
-        let legacy = dirs::config_dir().map(|d| d.join("mview").join("config.toml"));
-        let text = std::fs::read_to_string(&p)
-            .or_else(|e| legacy.map_or(Err(e), std::fs::read_to_string));
-        match text {
+        match std::fs::read_to_string(&p) {
             Ok(s) => toml::from_str(&s).unwrap_or_else(|e| {
                 log::warn!("bad config {}: {e}; using defaults", p.display());
                 Self::default()
