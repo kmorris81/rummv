@@ -68,7 +68,8 @@ loop_video = true
 ### Passing options to mpv
 
 Anything under `[mpv]` is handed to libmpv as-is (applied after mview's defaults; invalid
-options are logged and skipped), e.g. to tune HDR→SDR tone mapping:
+options are logged and skipped). mview defaults to `tone-mapping = "hable"` for HDR video
+(iPhone footage etc.); override it here if you prefer another curve:
 
 ```toml
 [mpv]

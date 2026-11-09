@@ -118,6 +118,10 @@ impl VideoPlayer {
             i.set_option("hr-seek", "yes")?;
             // Don't let mpv_render_context_render block the UI thread waiting for vsync timing.
             i.set_option("video-timing-offset", 0.0)?;
+            // The render API only offers mpv's legacy `gpu` renderer, whose default HDR->SDR
+            // curve blows out HLG/PQ footage (e.g. iPhone video). Hable is much closer to what
+            // standalone mpv (gpu-next) produces. Only affects HDR; `[mpv]` can override it.
+            i.set_option("tone-mapping", "hable")?;
             for (k, v) in &init.extra_options {
                 if let Err(e) = i.set_option(k, v.as_str()) {
                     log::warn!("mpv option {k}={v}: {e}");
