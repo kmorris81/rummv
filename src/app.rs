@@ -1601,38 +1601,34 @@ impl RummvApp {
             ("F11, double-click", "Fullscreen"),
             ("Esc / Q", "Leave fullscreen or quit / quit"),
         ];
-        // Fill the window and split into as many columns as needed, so it never scrolls.
-        let area = ctx.content_rect().shrink(24.0);
-        // Row height of the grid below (text + spacing); title bar + footer take ~110 px.
-        const ROW_H: f32 = 26.0;
-        // Widest key + description pair, so columns never overlap.
-        const COL_W: f32 = 540.0;
-        let rows_fit = (((area.height() - 110.0) / ROW_H).floor() as usize).max(1);
-        let cols_fit = ((area.width() / COL_W).floor() as usize).clamp(1, 3);
-        let cols_needed = KEYS.len().div_ceil(rows_fit);
-        let cols = cols_needed.min(cols_fit);
+        // Compact centred window, as tall as needed to list everything without scrolling.
+        // Only if the app window is too short for one column, use two (still content-width);
+        // scroll only as a last resort.
+        let avail = ctx.content_rect().shrink(24.0);
+        // Height of one grid row (text + spacing) and of the title bar + footer.
+        const ROW_H: f32 = 24.0;
+        const CHROME_H: f32 = 100.0;
+        let rows_fit = (((avail.height() - CHROME_H) / ROW_H).floor() as usize).max(1);
+        let cols = if KEYS.len() <= rows_fit { 1 } else { 2 };
         let per_col = KEYS.len().div_ceil(cols);
-        // Only a really small window is too small for everything: then scroll.
-        let scroll = cols_needed > cols_fit;
+        let scroll = per_col > rows_fit;
         egui::Window::new("Keyboard shortcuts")
             .collapsible(false)
             .resizable(false)
-            .fixed_rect(area)
+            .anchor(Align2::CENTER_CENTER, Vec2::ZERO)
             .vscroll(scroll)
+            .max_height(avail.height())
+            .max_width(avail.width())
             .show(ctx, |ui| {
-                if scroll {
-                    ui.set_min_width(ui.available_width());
-                } else {
-                    ui.set_min_size(ui.available_size());
-                }
-                ui.columns(cols, |columns| {
-                    for (c, (col_ui, chunk)) in
-                        columns.iter_mut().zip(KEYS.chunks(per_col)).enumerate()
-                    {
+                ui.horizontal_top(|ui| {
+                    for (c, chunk) in KEYS.chunks(per_col).enumerate() {
+                        if c > 0 {
+                            ui.add_space(24.0);
+                        }
                         egui::Grid::new(("help", c))
                             .num_columns(2)
-                            .spacing([16.0, 6.0])
-                            .show(col_ui, |ui| {
+                            .spacing([16.0, 4.0])
+                            .show(ui, |ui| {
                                 for (k, d) in chunk {
                                     ui.label(egui::RichText::new(*k).monospace().color(ACCENT));
                                     ui.label(*d);
@@ -1641,7 +1637,7 @@ impl RummvApp {
                             });
                     }
                 });
-                ui.add_space(10.0);
+                ui.add_space(6.0);
                 ui.label(egui::RichText::new("F1 / ? / Esc to close").weak());
             });
     }
