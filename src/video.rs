@@ -237,7 +237,11 @@ impl VideoPlayer {
 
     fn set_speed(&mut self, speed: f64) {
         if speed != self.speed {
-            log::debug!("speed {} -> {speed} at {:.3}s", self.speed, self.state.position);
+            log::debug!(
+                "speed {} -> {speed} at {:.3}s",
+                self.speed,
+                self.state.position
+            );
             self.speed = speed;
             let _ = self.mpv.set_property("speed", speed);
         }

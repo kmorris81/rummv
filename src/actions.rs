@@ -1,7 +1,7 @@
 //! File actions. Anything that modifies or deletes a file is only ever invoked after the
 //! user confirms it in the UI (see `app.rs`, `Confirm`).
 use std::io::{Read, Seek, SeekFrom, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 pub fn trash(path: &Path) -> anyhow::Result<()> {
@@ -10,6 +10,55 @@ pub fn trash(path: &Path) -> anyhow::Result<()> {
 
 pub fn delete_permanently(path: &Path) -> anyhow::Result<()> {
     std::fs::remove_file(path).map_err(|e| anyhow::anyhow!("delete: {e}"))
+}
+
+/// Apple Photos sidecars (`.AAE` edit files) that belong only to `path` and would be left
+/// orphaned if it were deleted: `IMG_1234.AAE`, and `IMG_O1234.AAE` (the original's edit).
+/// A sidecar is kept if another file still uses its name, e.g. the `.HEIC` half of a Live
+/// Photo whose `.MOV` is being deleted, or the edited `IMG_E1234` version.
+pub fn orphaned_sidecars(path: &Path) -> Vec<PathBuf> {
+    let (Some(dir), Some(stem)) = (path.parent(), path.file_stem().and_then(|s| s.to_str())) else {
+        return Vec::new();
+    };
+    let stem = stem.to_ascii_lowercase();
+    // (sidecar file name, stems of the files it belongs to)
+    let mut candidates = vec![(format!("{stem}.aae"), vec![stem.clone()])];
+    if let Some(rest) = stem.strip_prefix("img_")
+        && !rest.starts_with(['e', 'o'])
+    {
+        candidates.push((
+            format!("img_o{rest}.aae"),
+            vec![stem.clone(), format!("img_e{rest}")],
+        ));
+    }
+    let Ok(rd) = std::fs::read_dir(dir) else {
+        return Vec::new();
+    };
+    let files: Vec<PathBuf> = rd.flatten().map(|e| e.path()).collect();
+    let lower_name = |p: &Path| {
+        p.file_name()
+            .and_then(|n| n.to_str())
+            .map(str::to_ascii_lowercase)
+            .unwrap_or_default()
+    };
+    let is_aae = |p: &Path| lower_name(p).ends_with(".aae");
+    let mut out = Vec::new();
+    for (name, owners) in candidates {
+        let Some(sidecar) = files.iter().find(|p| lower_name(p) == name) else {
+            continue;
+        };
+        let still_used = files.iter().any(|p| {
+            p != path
+                && !is_aae(p)
+                && p.file_stem()
+                    .and_then(|s| s.to_str())
+                    .is_some_and(|s| owners.contains(&s.to_ascii_lowercase()))
+        });
+        if !still_used {
+            out.push(sidecar.clone());
+        }
+    }
+    out
 }
 
 /// Reveal the file in the file manager (Dolphin implements org.freedesktop.FileManager1).
@@ -359,6 +408,42 @@ fn minimal_exif_app1(orientation: u16) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sidecars_follow_their_only_owner() {
+        let dir = std::env::temp_dir().join(format!("rummv-aae-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        for f in [
+            "IMG_0001.MOV",
+            "IMG_0001.AAE", // slo-mo + its edit
+            "IMG_0002.HEIC",
+            "IMG_0002.MOV",
+            "IMG_0002.AAE", // Live Photo pair
+            "IMG_0003.MOV",
+            "IMG_O0003.aae",
+            "IMG_E0003.MOV", // original + edited copy
+            "IMG_0004.MOV",
+            "img_o0004.AAE", // original's edit, no edited copy
+        ] {
+            std::fs::write(dir.join(f), b"").unwrap();
+        }
+        let names = |p: &str| -> Vec<String> {
+            orphaned_sidecars(&dir.join(p))
+                .iter()
+                .map(|p| p.file_name().unwrap().to_string_lossy().into_owned())
+                .collect()
+        };
+        assert_eq!(names("IMG_0001.MOV"), ["IMG_0001.AAE"]);
+        assert!(names("IMG_0002.MOV").is_empty(), "HEIC still uses it");
+        assert!(
+            names("IMG_0003.MOV").is_empty(),
+            "edited copy still uses it"
+        );
+        assert_eq!(names("IMG_0004.MOV"), ["img_o0004.AAE"]);
+        assert!(names("IMG_0001.AAE").is_empty());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 
     #[test]
     fn orientation_algebra() {

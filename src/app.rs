@@ -34,6 +34,8 @@ enum ConfirmAction {
 struct Confirm {
     action: ConfirmAction,
     path: PathBuf,
+    /// Sidecar files (.AAE) removed together with `path`, listed in the prompt.
+    extra: Vec<PathBuf>,
     title: String,
     body: String,
     confirm_label: &'static str,
@@ -484,15 +486,34 @@ impl RummvApp {
     // ------------------------------------------------------------------ confirmations
 
     fn ask_delete(&mut self, path: PathBuf, permanent: bool) {
-        let name = file_name(&path);
+        let extra = actions::orphaned_sidecars(&path);
+        let name = if extra.is_empty() {
+            format!("“{}”", file_name(&path))
+        } else {
+            let others: Vec<String> = extra
+                .iter()
+                .map(|p| format!("“{}”", file_name(p)))
+                .collect();
+            format!(
+                "“{}” and its Photos edit file {}",
+                file_name(&path),
+                others.join(", ")
+            )
+        };
+        let (plural, it) = if extra.is_empty() {
+            ("", "it")
+        } else {
+            ("s", "them")
+        };
         self.confirm = Some(if permanent {
             Confirm {
                 action: ConfirmAction::DeletePermanently,
-                title: "Delete permanently?".into(),
-                body: format!("“{name}” will be permanently deleted.\nThis cannot be undone."),
+                title: format!("Delete file{plural} permanently?"),
+                body: format!("{name} will be permanently deleted.\nThis cannot be undone."),
                 confirm_label: "Delete permanently",
                 danger: true,
                 path,
+                extra,
                 first_frame: true,
             }
         } else {
@@ -500,11 +521,12 @@ impl RummvApp {
                 action: ConfirmAction::Trash,
                 title: "Move to Trash?".into(),
                 body: format!(
-                    "“{name}” will be moved to the Trash.\nYou can restore it from the Trash in Dolphin."
+                    "{name} will be moved to the Trash.\nYou can restore {it} from the Trash in Dolphin."
                 ),
                 confirm_label: "Move to Trash",
                 danger: false,
                 path,
+                extra,
                 first_frame: true,
             }
         });
@@ -541,6 +563,7 @@ impl RummvApp {
             confirm_label: "Save",
             danger: matches!(plan, actions::SavePlan::Reencode(_)),
             path,
+            extra: Vec::new(),
             first_frame: true,
         });
     }
@@ -618,13 +641,22 @@ impl RummvApp {
                 if let Some(v) = &mut self.video {
                     v.stop();
                 }
-                let res = if matches!(c.action, ConfirmAction::Trash) {
-                    actions::trash(&c.path)
-                } else {
-                    actions::delete_permanently(&c.path)
+                let remove = |p: &std::path::Path| {
+                    if matches!(c.action, ConfirmAction::Trash) {
+                        actions::trash(p)
+                    } else {
+                        actions::delete_permanently(p)
+                    }
                 };
-                match res {
+                match remove(&c.path) {
                     Ok(()) => {
+                        // The media file is gone; now its sidecars (only after that succeeded,
+                        // so a failed delete never leaves a video without its edit).
+                        for extra in &c.extra {
+                            if let Err(e) = remove(extra) {
+                                self.toast(ctx, format!("{}: {e:#}", file_name(extra)));
+                            }
+                        }
                         if still_current {
                             self.playlist.remove_current();
                         } else {
@@ -638,7 +670,16 @@ impl RummvApp {
                         } else {
                             "Deleted"
                         };
-                        self.toast(ctx, format!("{what}: {}", file_name(&c.path)));
+                        let more = if c.extra.is_empty() {
+                            String::new()
+                        } else {
+                            format!(
+                                " (+ {} edit file{})",
+                                c.extra.len(),
+                                if c.extra.len() == 1 { "" } else { "s" }
+                            )
+                        };
+                        self.toast(ctx, format!("{what}: {}{more}", file_name(&c.path)));
                     }
                     Err(e) => {
                         self.shown = None; // reload video if it was one
