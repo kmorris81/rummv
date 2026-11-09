@@ -36,6 +36,8 @@ rustPlatform.buildRustPackage {
 
   postInstall = ''
     install -Dm644 assets/rummv.desktop $out/share/applications/rummv.desktop
+    install -Dm644 assets/rummv.svg $out/share/icons/hicolor/scalable/apps/rummv.svg
+    install -Dm644 assets/rummv.png $out/share/icons/hicolor/256x256/apps/rummv.png
   '';
 
   postFixup = runtime.wrap;

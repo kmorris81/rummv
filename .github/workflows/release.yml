@@ -39,10 +39,13 @@ jobs:
       - name: Package
         run: |
           name=rummv-$VERSION-x86_64-linux
-          mkdir -p "$name/bin" "$name/share/applications"
+          mkdir -p "$name/bin" "$name/share/applications" \
+            "$name/share/icons/hicolor/scalable/apps" "$name/share/icons/hicolor/256x256/apps"
           # bin/rummv is the Nix wrapper script; package the real binary.
           install -m755 result/bin/.rummv-wrapped "$name/bin/rummv"
           install -m644 assets/rummv.desktop "$name/share/applications/"
+          install -m644 assets/rummv.svg "$name/share/icons/hicolor/scalable/apps/"
+          install -m644 assets/rummv.png "$name/share/icons/hicolor/256x256/apps/"
           tar --sort=name --owner=0 --group=0 --numeric-owner --mtime=@0 -czf "$name.tar.gz" "$name"
           echo "TARBALL=$name.tar.gz" >> "$GITHUB_ENV"
 

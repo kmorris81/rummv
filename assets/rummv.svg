@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <radialGradient id="g" cx="0.35" cy="0.3" r="0.9">
+      <stop offset="0" stop-color="#ff9a4d"/><stop offset="0.6" stop-color="#ce5a1f"/><stop offset="1" stop-color="#8a3210"/>
+    </radialGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2b2f3a"/><stop offset="1" stop-color="#14161c"/>
+    </linearGradient>
+    <clipPath id="c"><circle cx="128" cy="128" r="72"/></clipPath>
+  </defs>
+  <g fill="url(#g)">
+    <circle cx="128" cy="128" r="100"/>
+    <g id="t"><path d="M112 34 L116 10 H140 L144 34 Z"/></g>
+    <use href="#t" transform="rotate(30 128 128)"/><use href="#t" transform="rotate(60 128 128)"/>
+    <use href="#t" transform="rotate(90 128 128)"/><use href="#t" transform="rotate(120 128 128)"/>
+    <use href="#t" transform="rotate(150 128 128)"/><use href="#t" transform="rotate(180 128 128)"/>
+    <use href="#t" transform="rotate(210 128 128)"/><use href="#t" transform="rotate(240 128 128)"/>
+    <use href="#t" transform="rotate(270 128 128)"/><use href="#t" transform="rotate(300 128 128)"/>
+    <use href="#t" transform="rotate(330 128 128)"/>
+  </g>
+  <circle cx="128" cy="128" r="76" fill="#5e230b"/>
+  <circle cx="128" cy="128" r="72" fill="url(#screen)"/>
+  <g clip-path="url(#c)">
+    <circle cx="90" cy="92" r="13" fill="#ffd166"/>
+    <path d="M48 200 L100 132 L132 168 L156 144 L210 200 Z" fill="#4cc9f0"/>
+    <path d="M48 200 L100 132 L114 148 L86 200 Z" fill="#90e0ef"/>
+  </g>
+  <path d="M110 98 L156 126 L110 154 Z" fill="#ffffff" stroke="#14161c" stroke-width="4" stroke-linejoin="round"/>
+</svg>
