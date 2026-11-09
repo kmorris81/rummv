@@ -1,5 +1,5 @@
 {
-  description = "mview — Rust image & video viewer (Windows Photos-style folder browsing)";
+  description = "rummv — Rust image & video viewer (Windows Photos-style folder browsing)";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
@@ -21,7 +21,7 @@
     {
       packages = forAll (pkgs: {
         default = pkgs.rustPlatform.buildRustPackage {
-          pname = "mview";
+          pname = "rummv";
           version = "0.1.0";
           src = pkgs.lib.cleanSource ./.;
           cargoLock.lockFile = ./Cargo.lock;
@@ -33,13 +33,13 @@
           doCheck = false;
 
           postInstall = ''
-            install -Dm644 assets/mview.desktop $out/share/applications/mview.desktop
+            install -Dm644 assets/rummv.desktop $out/share/applications/rummv.desktop
           '';
 
           # winit/glutin dlopen GL, Wayland and X11 libraries at runtime.
           # ffmpegthumbnailer/ffmpeg generate filmstrip thumbnails for videos.
           postFixup = ''
-            wrapProgram $out/bin/mview \
+            wrapProgram $out/bin/rummv \
               --prefix LD_LIBRARY_PATH : ${pkgs.lib.makeLibraryPath (runtimeLibs pkgs)} \
               --suffix LD_LIBRARY_PATH : /run/opengl-driver/lib \
               --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.ffmpegthumbnailer pkgs.ffmpeg-headless ]}
@@ -47,7 +47,7 @@
 
           meta = {
             description = "Image & video viewer with arrow-key folder navigation";
-            mainProgram = "mview";
+            mainProgram = "rummv";
             platforms = pkgs.lib.platforms.linux;
           };
         };

@@ -1,4 +1,4 @@
-//! Persistent settings: ~/.config/mview/config.toml
+//! Persistent settings: ~/.config/rummv/config.toml
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -34,7 +34,7 @@ pub struct Config {
     pub slideshow_secs: f32,
     /// Loop videos forever (true) or stop at end (false).
     pub loop_video: bool,
-    /// Extra mpv options, applied last (override mview's defaults), e.g.
+    /// Extra mpv options, applied last (override rummv's defaults), e.g.
     /// `[mpv]` / `tone-mapping = "bt.2446a"`. See `man mpv`.
     pub mpv: std::collections::BTreeMap<String, String>,
 }
@@ -61,14 +61,18 @@ impl Default for Config {
 
 impl Config {
     pub fn path() -> Option<PathBuf> {
-        dirs::config_dir().map(|d| d.join("mview").join("config.toml"))
+        dirs::config_dir().map(|d| d.join("rummv").join("config.toml"))
     }
 
     pub fn load() -> Self {
         let Some(p) = Self::path() else {
             return Self::default();
         };
-        match std::fs::read_to_string(&p) {
+        // Carry settings over from the app's previous name (mview); saved to the new path on exit.
+        let legacy = dirs::config_dir().map(|d| d.join("mview").join("config.toml"));
+        let text = std::fs::read_to_string(&p)
+            .or_else(|e| legacy.map_or(Err(e), std::fs::read_to_string));
+        match text {
             Ok(s) => toml::from_str(&s).unwrap_or_else(|e| {
                 log::warn!("bad config {}: {e}; using defaults", p.display());
                 Self::default()

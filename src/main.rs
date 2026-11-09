@@ -1,4 +1,4 @@
-//! mview — image & video viewer. `mview <file|folder>`
+//! rummv — image & video viewer. `rummv <file|folder>`
 mod actions;
 mod app;
 mod cache;
@@ -13,16 +13,16 @@ mod video;
 use std::path::PathBuf;
 
 const USAGE: &str = "\
-mview — image & video viewer
+rummv — image & video viewer
 
 USAGE:
-    mview [FILE | FOLDER]
+    rummv [FILE | FOLDER]
 
 Opens FILE and lets you step through every image/video in its folder with ←/→.
 With a FOLDER (or nothing: the current directory) it starts at the first file.
 Press F1 inside the viewer for all keyboard shortcuts.
 
-Config: ~/.config/mview/config.toml";
+Config: ~/.config/rummv/config.toml";
 
 fn main() -> anyhow::Result<()> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("warn")).init();
@@ -35,7 +35,7 @@ fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
             Some("-V" | "--version") => {
-                println!("mview {}", env!("CARGO_PKG_VERSION"));
+                println!("rummv {}", env!("CARGO_PKG_VERSION"));
                 return Ok(());
             }
             Some("--") => {}
@@ -58,8 +58,8 @@ fn main() -> anyhow::Result<()> {
     let playlist = playlist::Playlist::open(&target, cfg.show_hidden, cfg.watch_folder)?;
 
     let mut viewport = egui::ViewportBuilder::default()
-        .with_title("mview")
-        .with_app_id("mview")
+        .with_title("rummv")
+        .with_app_id("rummv")
         .with_inner_size([1280.0, 800.0])
         .with_min_inner_size([320.0, 240.0])
         .with_drag_and_drop(true);
@@ -79,9 +79,9 @@ fn main() -> anyhow::Result<()> {
         ..Default::default()
     };
     eframe::run_native(
-        "mview",
+        "rummv",
         options,
-        Box::new(move |cc| Ok(Box::new(app::MviewApp::new(cc, cfg, playlist)))),
+        Box::new(move |cc| Ok(Box::new(app::RummvApp::new(cc, cfg, playlist)))),
     )
     .map_err(|e| anyhow::anyhow!("{e}"))
 }

@@ -55,7 +55,7 @@ struct Toast {
     until: f64,
 }
 
-pub struct MviewApp {
+pub struct RummvApp {
     cfg: Config,
     playlist: Playlist,
     cache: ImageCache,
@@ -83,7 +83,7 @@ pub struct MviewApp {
     loading_since: f64,
 }
 
-impl MviewApp {
+impl RummvApp {
     pub fn new(cc: &eframe::CreationContext<'_>, cfg: Config, playlist: Playlist) -> Self {
         let ctx = &cc.egui_ctx;
         let mut visuals = egui::Visuals::dark();
@@ -186,12 +186,12 @@ impl MviewApp {
             }
             let title = match &cur {
                 Some((p, _)) => format!(
-                    "{} — mview",
+                    "{} — rummv",
                     p.file_name()
                         .map(|n| n.to_string_lossy().into_owned())
                         .unwrap_or_default()
                 ),
-                None => "mview".into(),
+                None => "rummv".into(),
             };
             if title != self.title {
                 ctx.send_viewport_cmd(egui::ViewportCommand::Title(title.clone()));
@@ -1441,7 +1441,7 @@ impl MviewApp {
     }
 }
 
-impl eframe::App for MviewApp {
+impl eframe::App for RummvApp {
     fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
         ctx.input(|i| self.cache.set_max_side(i.max_texture_side));

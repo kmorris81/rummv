@@ -37,7 +37,7 @@ impl Thumbnailer {
             let tx = tx.clone();
             let ctx = ctx.clone();
             std::thread::Builder::new()
-                .name(format!("mview-thumb-{i}"))
+                .name(format!("rummv-thumb-{i}"))
                 .spawn(move || {
                     loop {
                         let (path, kind) = {
@@ -196,7 +196,7 @@ fn write_cached(dst: &Path, img: &image::RgbaImage, uri: &str, mtime: u64) -> an
     // Unique per write: two workers may race on the same thumbnail.
     static SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     let seq = SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    let tmp = dst.with_extension(format!("mview-{}-{seq}.tmp", std::process::id()));
+    let tmp = dst.with_extension(format!("rummv-{}-{seq}.tmp", std::process::id()));
     {
         let f = std::io::BufWriter::new(std::fs::File::create(&tmp)?);
         let mut enc = png::Encoder::new(f, img.width(), img.height());
@@ -204,7 +204,7 @@ fn write_cached(dst: &Path, img: &image::RgbaImage, uri: &str, mtime: u64) -> an
         enc.set_depth(png::BitDepth::Eight);
         enc.add_text_chunk("Thumb::URI".into(), uri.into())?;
         enc.add_text_chunk("Thumb::MTime".into(), mtime.to_string())?;
-        enc.add_text_chunk("Software".into(), "mview".into())?;
+        enc.add_text_chunk("Software".into(), "rummv".into())?;
         let mut w = enc.write_header()?;
         w.write_image_data(img.as_raw())?;
     }
@@ -220,7 +220,7 @@ fn generate_image(path: &Path, fmt: ImageFormat) -> Option<image::RgbaImage> {
 fn generate_video(path: &Path) -> Option<image::RgbaImage> {
     static SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     let seq = SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    let tmp = std::env::temp_dir().join(format!("mview-thumb-{}-{seq}.png", std::process::id()));
+    let tmp = std::env::temp_dir().join(format!("rummv-thumb-{}-{seq}.png", std::process::id()));
     let side = SIDE.to_string();
     let scale = format!("scale={side}:{side}:force_original_aspect_ratio=decrease");
     let attempts: Vec<Vec<std::ffi::OsString>> = vec![

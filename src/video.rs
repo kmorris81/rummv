@@ -103,8 +103,8 @@ impl VideoPlayer {
             i.set_option("input-default-bindings", "no")?;
             i.set_option("input-vo-keyboard", "no")?;
             i.set_option("osc", "no")?;
-            // MVIEW_MPV_LOG=v (or debug, info...) prints mpv's own log to stderr for diagnosis.
-            match std::env::var("MVIEW_MPV_LOG") {
+            // RUMMV_MPV_LOG=v (or debug, info...) prints mpv's own log to stderr for diagnosis.
+            match std::env::var("RUMMV_MPV_LOG") {
                 Ok(level) if !level.is_empty() => {
                     i.set_option("terminal", "yes")?;
                     i.set_option("msg-level", format!("all={level}").as_str())?;
@@ -113,7 +113,7 @@ impl VideoPlayer {
             }
             i.set_option("config", "no")?;
             i.set_option("ytdl", "no")?;
-            i.set_option("audio-client-name", "mview")?;
+            i.set_option("audio-client-name", "rummv")?;
             i.set_option("sub-auto", "fuzzy")?;
             i.set_option("hr-seek", "yes")?;
             // Don't let mpv_render_context_render block the UI thread waiting for vsync timing.

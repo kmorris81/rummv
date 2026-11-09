@@ -232,7 +232,7 @@ mod tests {
 
     #[test]
     fn exif_orientation_applied() {
-        let tmp = std::env::temp_dir().join(format!("mview-orient-{}.jpg", std::process::id()));
+        let tmp = std::env::temp_dir().join(format!("rummv-orient-{}.jpg", std::process::id()));
         std::fs::copy(fixtures().join("a01.jpg"), &tmp).unwrap();
         crate::actions::save_rotation(&tmp, 1).unwrap();
         let d = decode(&tmp, ImageFormat::Raster, 16384).unwrap();

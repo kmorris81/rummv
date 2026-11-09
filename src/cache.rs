@@ -57,7 +57,7 @@ impl ImageCache {
             let ctx = ctx.clone();
             let max_side = max_side.clone();
             std::thread::Builder::new()
-                .name(format!("mview-decode-{i}"))
+                .name(format!("rummv-decode-{i}"))
                 .spawn(move || {
                     loop {
                         let (path, fmt) = {

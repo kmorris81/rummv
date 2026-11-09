@@ -230,7 +230,7 @@ mod tests {
 
     #[test]
     fn scan_wrap_and_remove() {
-        let dir = std::env::temp_dir().join(format!("mview-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("rummv-test-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         for n in [
             "b10.jpg",

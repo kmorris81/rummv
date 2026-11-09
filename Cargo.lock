@@ -2254,40 +2254,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13d2233c9842d08cfe13f9eac96e207ca6a2ea10b80259ebe8ad0268be27d2af"
 
 [[package]]
-name = "mview"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "crossbeam-channel",
- "dirs",
- "eframe",
- "egui",
- "env_logger",
- "glow",
- "image",
- "infer",
- "jiff",
- "jxl-oxide",
- "kamadak-exif",
- "libheif-rs",
- "libmpv2",
- "log",
- "md5",
- "natord",
- "notify",
- "png",
- "psd",
- "raw-window-handle",
- "rawler",
- "resvg",
- "serde",
- "toml 1.2.1+spec-1.1.0",
- "trash",
- "url",
- "winit",
-]
-
-[[package]]
 name = "naga"
 version = "30.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3314,6 +3280,40 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9da7f59328b09405b181fee1018925fad50f157afb43c0c0f5c522c256dd5907"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "rummv"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "crossbeam-channel",
+ "dirs",
+ "eframe",
+ "egui",
+ "env_logger",
+ "glow",
+ "image",
+ "infer",
+ "jiff",
+ "jxl-oxide",
+ "kamadak-exif",
+ "libheif-rs",
+ "libmpv2",
+ "log",
+ "md5",
+ "natord",
+ "notify",
+ "png",
+ "psd",
+ "raw-window-handle",
+ "rawler",
+ "resvg",
+ "serde",
+ "toml 1.2.1+spec-1.1.0",
+ "trash",
+ "url",
+ "winit",
 ]
 
 [[package]]

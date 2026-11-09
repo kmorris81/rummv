@@ -162,7 +162,7 @@ fn tmp_sibling(path: &Path) -> std::path::PathBuf {
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_default();
-    path.with_file_name(format!(".{name}.mview-{}.tmp", std::process::id()))
+    path.with_file_name(format!(".{name}.rummv-{}.tmp", std::process::id()))
 }
 
 fn replace_preserving_perms(tmp: &Path, dst: &Path) -> anyhow::Result<()> {
@@ -375,7 +375,7 @@ mod tests {
 
     #[test]
     fn jpeg_exif_roundtrip() {
-        let dir = std::env::temp_dir().join(format!("mview-rot-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("rummv-rot-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let p = dir.join("a.jpg");
         let img = image::RgbImage::from_fn(8, 4, |x, _| image::Rgb([x as u8 * 30, 0, 0]));

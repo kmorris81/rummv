@@ -1,4 +1,4 @@
-# mview
+# rummv
 
 A fast image & video viewer in Rust that behaves like the Windows Photos app:
 open any file from Dolphin and use **← / →** to step through every image and video in
@@ -20,23 +20,23 @@ Press **F1** in the app for all shortcuts.
 In your system flake:
 
 ```nix
-inputs.mview.url = "path:/path/to/mview";   # or a git URL
+inputs.rummv.url = "path:/path/to/rummv";   # or a git URL
 # ...
-environment.systemPackages = [ inputs.mview.packages.${pkgs.stdenv.hostPlatform.system}.default ];
+environment.systemPackages = [ inputs.rummv.packages.${pkgs.stdenv.hostPlatform.system}.default ];
 ```
 
 Try it first without installing (`nix run` / `nix shell`):
 
 ```sh
-nix run /path/to/mview -- ~/Pictures/some.jpg
+nix run /path/to/rummv -- ~/Pictures/some.jpg
 ```
 
 ## Make it the default viewer in Dolphin
 
-System Settings → **Default Applications** → *Image viewer* → mview,
-or per type: right-click a file in Dolphin → **Open With → Other Application…** → mview →
-tick *Remember application association*. The bundled `mview.desktop` registers all image
-and video MIME types (`Exec=mview %f`; mview derives the folder from the file).
+System Settings → **Default Applications** → *Image viewer* → rummv,
+or per type: right-click a file in Dolphin → **Open With → Other Application…** → rummv →
+tick *Remember application association*. The bundled `rummv.desktop` registers all image
+and video MIME types (`Exec=rummv %f`; rummv derives the folder from the file).
 
 ## Develop
 
@@ -48,7 +48,7 @@ cargo run -- tests/fixtures/a01.jpg
 
 ## Config
 
-`~/.config/mview/config.toml` (written on exit; volume/mute are remembered):
+`~/.config/rummv/config.toml` (written on exit; volume/mute are remembered):
 
 ```toml
 volume = 70.0
@@ -67,8 +67,8 @@ loop_video = true
 
 ### Passing options to mpv
 
-Anything under `[mpv]` is handed to libmpv as-is (applied after mview's defaults; invalid
-options are logged and skipped). mview defaults to `tone-mapping = "hable"` for HDR video
+Anything under `[mpv]` is handed to libmpv as-is (applied after rummv's defaults; invalid
+options are logged and skipped). rummv defaults to `tone-mapping = "hable"` for HDR video
 (iPhone footage etc.); override it here if you prefer another curve:
 
 ```toml
@@ -77,4 +77,4 @@ tone-mapping = "bt.2446a"
 hdr-compute-peak = "no"
 ```
 
-Run with `MVIEW_MPV_LOG=v mview file.mov` to see mpv's own log on stderr.
+Run with `RUMMV_MPV_LOG=v rummv file.mov` to see mpv's own log on stderr.
