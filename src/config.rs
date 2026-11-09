@@ -34,6 +34,9 @@ pub struct Config {
     pub slideshow_secs: f32,
     /// Loop videos forever (true) or stop at end (false).
     pub loop_video: bool,
+    /// Extra mpv options, applied last (override mview's defaults), e.g.
+    /// `[mpv]` / `tone-mapping = "bt.2446a"`. See `man mpv`.
+    pub mpv: std::collections::BTreeMap<String, String>,
 }
 
 impl Default for Config {
@@ -51,6 +54,7 @@ impl Default for Config {
             show_info: false,
             slideshow_secs: 4.0,
             loop_video: true,
+            mpv: Default::default(),
         }
     }
 }

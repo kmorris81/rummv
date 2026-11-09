@@ -69,6 +69,7 @@ pub struct VideoInit {
     pub hw_enabled: bool,
     pub hwdec_value: String,
     pub loop_video: bool,
+    pub extra_options: std::collections::BTreeMap<String, String>,
 }
 
 impl VideoPlayer {
@@ -102,7 +103,14 @@ impl VideoPlayer {
             i.set_option("input-default-bindings", "no")?;
             i.set_option("input-vo-keyboard", "no")?;
             i.set_option("osc", "no")?;
-            i.set_option("terminal", "no")?;
+            // MVIEW_MPV_LOG=v (or debug, info...) prints mpv's own log to stderr for diagnosis.
+            match std::env::var("MVIEW_MPV_LOG") {
+                Ok(level) if !level.is_empty() => {
+                    i.set_option("terminal", "yes")?;
+                    i.set_option("msg-level", format!("all={level}").as_str())?;
+                }
+                _ => i.set_option("terminal", "no")?,
+            }
             i.set_option("config", "no")?;
             i.set_option("ytdl", "no")?;
             i.set_option("audio-client-name", "mview")?;
@@ -110,6 +118,11 @@ impl VideoPlayer {
             i.set_option("hr-seek", "yes")?;
             // Don't let mpv_render_context_render block the UI thread waiting for vsync timing.
             i.set_option("video-timing-offset", 0.0)?;
+            for (k, v) in &init.extra_options {
+                if let Err(e) = i.set_option(k, v.as_str()) {
+                    log::warn!("mpv option {k}={v}: {e}");
+                }
+            }
             Ok(())
         })
         .map_err(|e| anyhow::anyhow!("mpv init: {e}"))?;

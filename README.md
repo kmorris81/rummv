@@ -64,3 +64,16 @@ show_info = false
 slideshow_secs = 4.0
 loop_video = true
 ```
+
+### Passing options to mpv
+
+Anything under `[mpv]` is handed to libmpv as-is (applied after mview's defaults; invalid
+options are logged and skipped), e.g. to tune HDR→SDR tone mapping:
+
+```toml
+[mpv]
+tone-mapping = "bt.2446a"
+hdr-compute-peak = "no"
+```
+
+Run with `MVIEW_MPV_LOG=v mview file.mov` to see mpv's own log on stderr.

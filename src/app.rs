@@ -99,6 +99,7 @@ impl MviewApp {
                 hw_enabled: cfg.hw_decode,
                 hwdec_value: cfg.hwdec.clone(),
                 loop_video: cfg.loop_video,
+                extra_options: cfg.mpv.clone(),
             },
         ) {
             Ok(v) => (Some(v), None),
