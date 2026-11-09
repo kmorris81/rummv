@@ -5,7 +5,7 @@ open any file from Dolphin and use **← / →** to step through every image and
 that folder. Videos autoplay (with sound, looping).
 
 * **Images:** JPEG, PNG, APNG, GIF, WebP (incl. animated), BMP, ICO, TIFF, TGA, DDS,
-  HDR, EXR, PNM, QOI, HEIC/HEIF, AVIF, JPEG XL, SVG, PSD, and camera RAW (CR2/CR3/NEF/ARW/
+  HDR, EXR, PNM, QOI, HEIC/HEIF, AVIF, JPEG XL, SVG, PSD, ICNS, and camera RAW (CR2/CR3/NEF/ARW/
   DNG/RAF/ORF/RW2/…). EXIF orientation is applied automatically.
 * **Video:** anything mpv/ffmpeg plays (MP4, MKV, WebM, MOV, AVI, …) via embedded libmpv.
   Zero-copy hardware decoding (`hwdec=auto-safe`), automatic CPU fallback, Ctrl+H toggle.

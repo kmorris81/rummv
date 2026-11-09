@@ -64,9 +64,9 @@ fn main() -> anyhow::Result<()> {
         .with_min_inner_size([320.0, 240.0])
         .with_drag_and_drop(true)
         // X11 window icon; on Wayland Plasma takes it from rummv.desktop (Icon=rummv).
-        .with_icon(std::sync::Arc::new(eframe::icon_data::from_png_bytes(include_bytes!(
-            "../assets/rummv.png"
-        ))?));
+        .with_icon(std::sync::Arc::new(eframe::icon_data::from_png_bytes(
+            include_bytes!("../assets/rummv.png"),
+        )?));
     if cfg.start_fullscreen {
         viewport = viewport.with_fullscreen(true);
     }

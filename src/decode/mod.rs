@@ -1,6 +1,7 @@
 //! Decoders for every supported still/animated image format.
 //! All decoders produce straight-alpha RGBA8 frames, already EXIF-oriented.
 mod heif;
+mod icns;
 mod jxl;
 mod psd;
 mod raster;
@@ -41,6 +42,7 @@ pub fn decode(path: &Path, fmt: ImageFormat, max_side: usize) -> anyhow::Result<
         ImageFormat::Jxl => (vec![still(jxl::decode(path)?)], vec![]),
         ImageFormat::Svg => (vec![still(svg::decode(path, max_side.min(4096))?)], vec![]),
         ImageFormat::Psd => (vec![still(psd::decode(path)?)], vec![]),
+        ImageFormat::Icns => (vec![still(icns::decode(path)?)], vec![]),
         ImageFormat::Raw => {
             let (img, how) = raw::decode(path)?;
             (vec![still(img)], vec![("RAW".to_string(), how.to_string())])
@@ -184,6 +186,7 @@ mod tests {
         ("a12.avif", [640, 400], 1),
         ("a13.jxl", [300, 200], 1),
         ("a15.psd", [640, 400], 1),
+        ("a16.icns", [256, 256], 1),
         ("a18_anim.png", [300, 200], 3),
         ("c_misnamed.jpg", [300, 200], 1),
     ];

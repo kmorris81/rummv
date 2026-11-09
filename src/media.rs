@@ -9,6 +9,7 @@ pub enum ImageFormat {
     Jxl,
     Svg,
     Psd,
+    Icns,
     Raw,
 }
 
@@ -32,6 +33,7 @@ const HEIF: &[&str] = &["heic", "heif", "hif", "avif", "heics", "avifs"];
 const JXL: &[&str] = &["jxl"];
 const SVG: &[&str] = &["svg", "svgz"];
 const PSD: &[&str] = &["psd"];
+const ICNS: &[&str] = &["icns"];
 const RAW: &[&str] = &[
     "cr2", "cr3", "crw", "nef", "nrw", "arw", "srf", "sr2", "dng", "raf", "orf", "rw2", "pef",
     "srw", "x3f", "3fr", "erf", "kdc", "dcr", "mrw", "iiq", "mos", "rwl", "mef", "ari",
@@ -39,7 +41,7 @@ const RAW: &[&str] = &[
 const VIDEO: &[&str] = &[
     "mp4", "m4v", "mkv", "webm", "mov", "qt", "avi", "wmv", "flv", "f4v", "mpg", "mpeg", "mpe",
     "m1v", "m2v", "m2ts", "mts", "ts", "vob", "ogv", "3gp", "3g2", "divx", "xvid", "asf", "rm",
-    "rmvb", "y4m", "mxf", "nut", "dv", "h264", "h265", "hevc", "av1", "ivf",
+    "rmvb", "y4m", "mxf", "nut", "dv", "h264", "h265", "hevc", "av1", "ivf", "fli", "flc", "ogm",
 ];
 
 pub fn kind_from_ext(path: &Path) -> Option<MediaKind> {
@@ -56,6 +58,8 @@ pub fn kind_from_ext(path: &Path) -> Option<MediaKind> {
         MediaKind::Image(ImageFormat::Svg)
     } else if has(PSD) {
         MediaKind::Image(ImageFormat::Psd)
+    } else if has(ICNS) {
+        MediaKind::Image(ImageFormat::Icns)
     } else if has(RAW) {
         MediaKind::Image(ImageFormat::Raw)
     } else if has(VIDEO) {
@@ -79,6 +83,7 @@ pub fn kind_from_magic(path: &Path) -> Option<MediaKind> {
     match mime {
         "image/heif" | "image/avif" | "image/heic" => Some(MediaKind::Image(ImageFormat::Heif)),
         "image/vnd.adobe.photoshop" => Some(MediaKind::Image(ImageFormat::Psd)),
+        "image/x-icns" => Some(MediaKind::Image(ImageFormat::Icns)),
         "image/jxl" => Some(MediaKind::Image(ImageFormat::Jxl)),
         m if m.starts_with("image/") => {
             // infer reports CR2/NEF etc. as image/x-canon-cr2 ...
@@ -192,6 +197,7 @@ mod tests {
         assert_eq!(k("a.jxl"), Some(MediaKind::Image(ImageFormat::Jxl)));
         assert_eq!(k("a.svg"), Some(MediaKind::Image(ImageFormat::Svg)));
         assert_eq!(k("a.psd"), Some(MediaKind::Image(ImageFormat::Psd)));
+        assert_eq!(k("a.icns"), Some(MediaKind::Image(ImageFormat::Icns)));
         assert_eq!(k("a.CR3"), Some(MediaKind::Image(ImageFormat::Raw)));
         assert_eq!(k("a.mkv"), Some(MediaKind::Video));
         assert_eq!(k("a.txt"), None);
